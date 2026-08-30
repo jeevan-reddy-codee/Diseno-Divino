@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
+import { db } from "@/lib/firebase/config";
+import { doc, setDoc, collection, addDoc } from "firebase/firestore";
 import { Member } from "@/types/member";
 
 export async function POST(req: NextRequest) {
@@ -11,8 +13,8 @@ export async function POST(req: NextRequest) {
       loginEmail,
       password,
       usn,
-      semester = "1st Semester",
-      branch = "Computer Science",
+      semester,
+      branch,
       domain,
       role = "member",
       permissions = {
@@ -22,11 +24,11 @@ export async function POST(req: NextRequest) {
         manageMembers: false,
         createEvents: false,
       },
-      adminUid = "admin",
-      adminName = "Admin",
+      adminUid = "president",
+      adminName = "President",
     } = body;
 
-    // 1. Validate required fields
+    // Validate required fields
     if (!name || !email || !password || !usn || !domain) {
       return NextResponse.json(
         { error: "Missing required member fields (name, email, password, usn, domain)." },
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     if (password.length < 6) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters long." },
+        { error: "Password must be at least 6 characters." },
         { status: 400 }
       );
     }
@@ -46,46 +48,45 @@ export async function POST(req: NextRequest) {
 
     let uid = "";
 
-    // 2. Create Firebase Auth user using Admin SDK
+    // 1. Create Auth User using Admin SDK
     if (adminAuth) {
       try {
         const userRecord = await adminAuth.createUser({
           email: loginEmail || email,
-          password: password,
+          password,
           displayName: name,
         });
         uid = userRecord.uid;
       } catch (authErr: any) {
         if (authErr.code === "auth/email-already-exists") {
           return NextResponse.json(
-            { error: `A Firebase Auth account with email "${loginEmail || email}" already exists.` },
+            { error: `An account with email ${loginEmail || email} already exists.` },
             { status: 409 }
           );
         }
-        console.error("Firebase Admin Auth createUser error:", authErr);
+        console.error("Admin Auth create error:", authErr);
         return NextResponse.json(
-          { error: authErr.message || "Failed to create Firebase Auth user account." },
+          { error: authErr.message || "Failed to create Auth user." },
           { status: 500 }
         );
       }
     } else {
-      // If Admin SDK credentials are not yet set in .env.local
-      // Generate a consistent UID and explain clearly
+      // Fallback: Generate consistent unique UID
       uid = "mem_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
-      console.warn("Notice: FIREBASE_ADMIN_PRIVATE_KEY is not configured. Created member document with UID:", uid);
+      console.warn("FIREBASE_ADMIN_PRIVATE_KEY not set. Falling back to generated UID:", uid);
     }
 
-    // 3. Create Firestore member record
+    // 2. Create Firestore Member Record
     const newMember: Member = {
       uid,
       name,
       email,
       loginEmail: loginEmail || email,
       usn,
-      semester,
-      branch,
+      semester: semester || "1st Semester",
+      branch: branch || "Computer Science",
       domain,
-      role: role as any,
+      role,
       status: "active",
       joinedAt: new Date().toISOString(),
       permissions,
@@ -103,9 +104,28 @@ export async function POST(req: NextRequest) {
           createdAt: new Date().toISOString(),
         });
       } catch (dbErr: any) {
-        console.error("Firebase Admin Firestore error:", dbErr);
+        console.error("Admin Firestore save error:", dbErr);
         return NextResponse.json(
           { error: "Auth user created, but failed to save member profile in Firestore: " + dbErr.message },
+          { status: 500 }
+        );
+      }
+    } else {
+      // Fallback to client Firestore instance
+      try {
+        await setDoc(doc(db, "members", uid), newMember);
+        await addDoc(collection(db, "activity"), {
+          action: "Member created",
+          performedBy: adminUid,
+          performedByName: adminName,
+          target: newMember.name,
+          details: `Created account for ${newMember.name} in ${newMember.domain} (${newMember.role})`,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (clientDbErr: any) {
+        console.error("Client Firestore fallback save error:", clientDbErr);
+        return NextResponse.json(
+          { error: "Failed to save member profile in Firestore: " + clientDbErr.message },
           { status: 500 }
         );
       }
@@ -117,9 +137,9 @@ export async function POST(req: NextRequest) {
       message: `Member ${name} successfully created with UID ${uid}`,
     });
   } catch (error: any) {
-    console.error("Error creating member in API route:", error);
+    console.error("Error creating member:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to create member account." },
+      { error: error.message || "Failed to create member." },
       { status: 500 }
     );
   }

@@ -11,7 +11,7 @@ import {
   onSnapshot,
   Unsubscribe,
 } from "firebase/firestore";
-import { Member, MemberPermissions, MemberStatus } from "@/types/member";
+import { Member, MemberPermissions, MemberStatus, MemberRole } from "@/types/member";
 import { logActivity } from "./activityService";
 
 /**
@@ -136,13 +136,17 @@ export async function createMember(
     const docRef = doc(db, "members", newMember.uid);
     await setDoc(docRef, newMember);
 
-    await logActivity({
-      action: "Member created",
-      performedBy: adminUid,
-      performedByName: adminName,
-      target: newMember.name,
-      details: `Added ${newMember.name} to ${newMember.domain} (${newMember.role})`,
-    });
+    try {
+      await logActivity({
+        action: "Member created",
+        performedBy: adminUid,
+        performedByName: adminName,
+        target: newMember.name,
+        details: `Added ${newMember.name} to ${newMember.domain} (${newMember.role})`,
+      });
+    } catch (e) {
+      console.warn("Could not log member creation activity:", e);
+    }
 
     return newMember;
   } catch (err: any) {
@@ -170,13 +174,17 @@ export async function updateMember(
       : null;
 
     if (updatedMember) {
-      await logActivity({
-        action: "Member edited",
-        performedBy: adminUid,
-        performedByName: adminName,
-        target: updatedMember.name,
-        details: `Updated profile details for ${updatedMember.name}`,
-      });
+      try {
+        await logActivity({
+          action: "Member edited",
+          performedBy: adminUid,
+          performedByName: adminName,
+          target: updatedMember.name,
+          details: `Updated profile details for ${updatedMember.name}`,
+        });
+      } catch (e) {
+        console.warn("Could not log member edit activity:", e);
+      }
     }
 
     return updatedMember;
@@ -184,6 +192,35 @@ export async function updateMember(
     console.error("Firestore updateMember error:", err);
     throw new Error(err.message || "Failed to update member in Firestore.");
   }
+}
+
+/**
+ * Assign Domain Head / Team Lead role
+ */
+export async function assignDomainHead(
+  uid: string,
+  leadDomains: string[],
+  designation: string,
+  adminUid: string,
+  adminName: string
+): Promise<Member | null> {
+  return updateMember(
+    uid,
+    {
+      role: "lead",
+      leadDomains,
+      designation: designation || `${leadDomains.join(", ")} Lead`,
+      permissions: {
+        reviewRequests: true,
+        manageRequests: true,
+        assignTodos: true,
+        manageMembers: true,
+        createEvents: true,
+      },
+    },
+    adminUid,
+    adminName
+  );
 }
 
 /**
@@ -224,13 +261,17 @@ export async function setMemberStatus(
     const snap = await getDoc(docRef);
     const name = snap.exists() ? (snap.data() as Member).name : uid;
 
-    await logActivity({
-      action: status === "disabled" ? "Member disabled" : "Member edited",
-      performedBy: adminUid,
-      performedByName: adminName,
-      target: name,
-      details: `Changed status to ${status}`,
-    });
+    try {
+      await logActivity({
+        action: status === "disabled" ? "Member disabled" : "Member edited",
+        performedBy: adminUid,
+        performedByName: adminName,
+        target: name,
+        details: `Changed status to ${status}`,
+      });
+    } catch (e) {
+      console.warn("Could not log member status activity:", e);
+    }
 
     return true;
   } catch (err: any) {
@@ -255,13 +296,17 @@ export async function updatePermissions(
     const snap = await getDoc(docRef);
     const name = snap.exists() ? (snap.data() as Member).name : uid;
 
-    await logActivity({
-      action: "Permission changed",
-      performedBy: adminUid,
-      performedByName: adminName,
-      target: name,
-      details: `Updated permissions for ${name}`,
-    });
+    try {
+      await logActivity({
+        action: "Permission changed",
+        performedBy: adminUid,
+        performedByName: adminName,
+        target: name,
+        details: `Updated permissions for ${name}`,
+      });
+    } catch (e) {
+      console.warn("Could not log permission activity:", e);
+    }
 
     return true;
   } catch (err: any) {

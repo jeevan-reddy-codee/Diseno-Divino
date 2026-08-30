@@ -11,20 +11,24 @@ import {
   Users,
   CheckSquare,
   Calendar,
-  ShieldCheck,
+  Crown,
   Bell,
   User,
   LogOut,
   Menu,
   X,
+  Home,
 } from "lucide-react";
 
 export const PortalNavbar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, memberProfile, isAdmin, signOutUser } = useAuth();
+  const { user, memberProfile, isPresident, isDomainHead, signOutUser } = useAuth();
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isUserPresident = isPresident;
+  const isUserLead = isDomainHead();
 
   useEffect(() => {
     const uid = memberProfile?.uid || user?.uid || "";
@@ -41,14 +45,19 @@ export const PortalNavbar: React.FC = () => {
     return () => unsubscribe();
   }, [user, memberProfile]);
 
+  // Role-based Navigation Item Filtering (Requirements 9, 10, 11)
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Domains & Requests", href: "/dashboard/requests", icon: Layers },
-    { label: "Members", href: "/dashboard/members", icon: Users },
-    { label: "To-Do", href: "/dashboard/todos", icon: CheckSquare },
-    { label: "Events", href: "/dashboard/events", icon: Calendar },
-    ...(isAdmin
-      ? [{ label: "Admin Control", href: "/admin", icon: ShieldCheck, highlight: true }]
+    ...(isUserPresident || isUserLead
+      ? [{ label: isUserPresident ? "Domains & Requests" : "Domain Applications", href: "/dashboard/requests", icon: Layers }]
+      : []),
+    ...(isUserPresident || isUserLead
+      ? [{ label: isUserPresident ? "Members Directory" : "Team Members", href: "/dashboard/members", icon: Users }]
+      : []),
+    { label: "To-Do Tasks", href: "/dashboard/todos", icon: CheckSquare },
+    { label: "Events & Workshops", href: "/dashboard/events", icon: Calendar },
+    ...(isUserPresident
+      ? [{ label: "President Control", href: "/admin", icon: Crown, highlight: true }]
       : []),
   ];
 
@@ -72,7 +81,11 @@ export const PortalNavbar: React.FC = () => {
           </Link>
           <div className="mt-3 flex items-center justify-between">
             <span className="font-label-caps text-[10px] text-primary tracking-widest uppercase bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-              {memberProfile?.role === "admin" ? "Admin Access" : "Member Portal"}
+              {isUserPresident
+                ? "President Level"
+                : isUserLead
+                ? "Domain Head"
+                : "Member Portal"}
             </span>
             <span className="text-xs text-on-surface-variant">
               {memberProfile?.domain || "Core"}
@@ -142,8 +155,19 @@ export const PortalNavbar: React.FC = () => {
               <span className="font-medium text-xs text-[#dde4e2]">
                 {memberProfile?.name || "Member"}
               </span>
-              <span className="text-[10px] text-[#859491]">View Profile</span>
+              <span className="text-[10px] text-[#859491]">
+                {isUserPresident ? "President" : isUserLead ? "Domain Head" : "Member"}
+              </span>
             </div>
+          </Link>
+
+          <Link
+            href="/"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#94A3B8] hover:text-[#5ff3e8] hover:bg-[#1a2120] transition-all"
+            title="Return to Public Club Website"
+          >
+            <Home className="w-4 h-4 text-primary/70" />
+            <span>Public Website</span>
           </Link>
 
           <button
@@ -222,12 +246,23 @@ export const PortalNavbar: React.FC = () => {
               <User className="w-5 h-5 text-secondary" />
               <span>Profile Settings</span>
             </Link>
+
+            <Link
+              onClick={() => setMobileOpen(false)}
+              href="/"
+              className="flex items-center gap-4 px-5 py-4 rounded-2xl text-base font-medium text-[#5ff3e8] bg-primary/10 border border-primary/30"
+            >
+              <Home className="w-5 h-5 text-primary" />
+              <span>Public Website Home</span>
+            </Link>
           </nav>
 
           <div className="pt-6 border-t border-white/10 space-y-3">
             <div className="p-4 rounded-2xl bg-[#161d1c] border border-white/10">
               <p className="text-sm font-bold text-white">{memberProfile?.name || "Member"}</p>
-              <p className="text-xs text-primary">{memberProfile?.domain} • {memberProfile?.role}</p>
+              <p className="text-xs text-primary">
+                {memberProfile?.domain} • {isUserPresident ? "President" : isUserLead ? "Domain Head" : "Member"}
+              </p>
             </div>
 
             <button

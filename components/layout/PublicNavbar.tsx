@@ -26,6 +26,14 @@ export const PublicNavbar: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-3 pointer-events-auto">
+          <Link
+            href="/rsvp"
+            className="hidden md:inline-flex items-center gap-1.5 bg-[#111111] border border-[#c5a059]/40 text-[#fed488] px-4 py-2 rounded-full font-label-caps text-xs hover:border-[#fed488] hover:shadow-[0_0_20px_rgba(197,160,89,0.3)] transition-all"
+          >
+            <span>Register for Events</span>
+            <span className="text-[10px]">✨</span>
+          </Link>
+
           {memberProfile ? (
             <Link
               href="/dashboard"
@@ -100,18 +108,27 @@ export const PublicNavbar: React.FC = () => {
           </Link>
           <Link
             onClick={() => setMenuOpen(false)}
+            href="/rsvp"
+            className="nav-pill w-full bg-[#111111] border border-[#c5a059]/40 rounded-[40px] px-10 py-5 text-[#fed488] font-headline text-2xl text-center hover:bg-[#c5a059]/20 hover:text-white"
+          >
+            Register for Events ✨
+          </Link>
+          <Link
+            onClick={() => setMenuOpen(false)}
             href="/#team"
             className="nav-pill w-full bg-[#111111] border border-white/20 rounded-[40px] px-10 py-5 text-[#F5F5F5] font-headline text-2xl text-center hover:text-primary"
           >
             Team
           </Link>
-          <Link
-            onClick={() => setMenuOpen(false)}
-            href="/#join"
-            className="nav-pill w-full bg-primary/20 border border-primary/50 text-primary rounded-[40px] px-10 py-5 font-headline text-2xl text-center hover:bg-primary hover:text-black"
-          >
-            Join Club
-          </Link>
+          {!memberProfile && (
+            <Link
+              onClick={() => setMenuOpen(false)}
+              href="/#join"
+              className="nav-pill w-full bg-primary/20 border border-primary/50 text-primary rounded-[40px] px-10 py-5 font-headline text-2xl text-center hover:bg-primary hover:text-black"
+            >
+              Join Club
+            </Link>
+          )}
 
           <div className="pt-4 flex gap-4 w-full justify-center">
             {memberProfile ? (

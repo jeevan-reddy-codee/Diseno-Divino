@@ -44,12 +44,12 @@ export async function seedFirestoreDatabase(): Promise<{
       {
         id: "notif_seed_001",
         recipientUid: "admin_uid_jeevan",
-        title: "Welcome to Diseño Divino Admin",
-        message: "Your administrator account has been initialized with full club privileges.",
+        title: "Welcome to President Control",
+        message: "Your executive President account has been initialized with full club privileges.",
         type: "system",
         read: false,
         createdAt: new Date().toISOString(),
-        link: "/dashboard",
+        link: "/admin",
       },
       { merge: true }
     );
@@ -78,7 +78,7 @@ export async function seedFirestoreDatabase(): Promise<{
         id: "act_seed_001",
         action: "Member created",
         performedBy: "admin_uid_jeevan",
-        performedByName: "Jeevan (Admin)",
+        performedByName: "Jeevan (President)",
         target: "Diseño Divino Database",
         details: "Initialized club member directory across 6 domains",
         createdAt: new Date().toISOString(),

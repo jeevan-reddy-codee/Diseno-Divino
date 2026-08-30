@@ -90,7 +90,7 @@ export async function createTodo(data: {
     assignedTo: data.assignedTo,
     assignedToName: data.assignedToName || "Member",
     createdBy: data.createdBy,
-    createdByName: data.createdByName || "Admin",
+    createdByName: data.createdByName || "President",
     completed: false,
     dueDate: data.dueDate || "Due this week",
     createdAt: new Date().toISOString(),
@@ -106,7 +106,7 @@ export async function createTodo(data: {
       await logActivity({
         action: "To-Do assigned",
         performedBy: data.createdBy,
-        performedByName: data.createdByName,
+        performedByName: data.createdByName || "President",
         target: data.assignedToName || "Self",
         details: `Task: "${newTodo.text}"`,
       });
@@ -119,7 +119,7 @@ export async function createTodo(data: {
         await sendNotification({
           recipientUid: data.assignedTo,
           title: "New To-Do Assigned",
-          message: `Admin assigned you a new To-Do: "${newTodo.text}"`,
+          message: `${data.createdByName || "President"} assigned you a new To-Do: "${newTodo.text}"`,
           type: "todo",
           link: "/dashboard/todos",
         });

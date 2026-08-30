@@ -2,23 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Calendar, Clock, MapPin, Sparkles, CheckCircle2, ArrowRight } from "lucide-react";
+import { Calendar, Clock, MapPin, ArrowRight } from "lucide-react";
 import { ClubEvent } from "@/types/event";
-import { getEvents, toggleEventRsvp } from "@/lib/services/eventService";
+import { getEvents } from "@/lib/services/eventService";
 
 export const PublicEvents: React.FC = () => {
   const [events, setEvents] = useState<ClubEvent[]>([]);
-  const [rsvpdMap, setRsvpdMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     getEvents().then((data) => setEvents(data.slice(0, 3)));
   }, []);
-
-  const handleRsvp = (eventId: string) => {
-    const isNow = !rsvpdMap[eventId];
-    setRsvpdMap((prev) => ({ ...prev, [eventId]: isNow }));
-    toggleEventRsvp(eventId, "guest_" + Date.now());
-  };
 
   return (
     <section id="events" className="py-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto relative z-10">
@@ -43,10 +36,10 @@ export const PublicEvents: React.FC = () => {
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <span className="bg-primary text-black font-bold text-xs px-3.5 py-1 rounded-full uppercase tracking-wider font-label-caps">
-                  Featured Hackathon
+                  Featured Event
                 </span>
                 <span className="text-xs text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full font-label-caps">
-                  24 Hours
+                  {events[0].category || "Workshop"}
                 </span>
               </div>
 
@@ -75,29 +68,18 @@ export const PublicEvents: React.FC = () => {
 
             <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-white/10">
               <span className="text-xs text-on-surface-variant">
-                🔥 <strong className="text-white">{events[0].rsvpCount || 142}</strong> registered attendees
+                🔥 <strong className="text-white">{events[0].registeredCount || events[0].rsvpCount || 142}</strong> registered candidates
               </span>
 
-              <button
-                onClick={() => handleRsvp(events[0].id)}
-                className={`px-6 py-3 rounded-full font-bold text-sm transition-all cursor-pointer flex items-center gap-2 ${
-                  rsvpdMap[events[0].id]
-                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                    : "bg-primary text-black hover:shadow-[0_0_25px_rgba(95,243,232,0.5)]"
-                }`}
-              >
-                {rsvpdMap[events[0].id] ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>RSVP Confirmed</span>
-                  </>
-                ) : (
-                  <>
-                    <span>RSVP Now</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/rsvp?event=${events[0].id}`}
+                  className="px-6 py-3 rounded-full font-bold text-sm bg-primary text-black hover:shadow-[0_0_25px_rgba(95,243,232,0.5)] transition-all cursor-pointer flex items-center gap-2"
+                >
+                  <span>Register for Event</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
           </div>
         )}
@@ -133,16 +115,12 @@ export const PublicEvents: React.FC = () => {
                   {ev.time}
                 </span>
 
-                <button
-                  onClick={() => handleRsvp(ev.id)}
-                  className={`text-xs px-4 py-2 rounded-full font-bold transition-all cursor-pointer ${
-                    rsvpdMap[ev.id]
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                      : "bg-[#111111] border border-white/20 text-white hover:border-primary hover:text-primary"
-                  }`}
+                <Link
+                  href={`/rsvp?event=${ev.id}`}
+                  className="text-xs px-4 py-2 rounded-full font-bold transition-all cursor-pointer bg-[#111111] border border-white/20 text-white hover:border-primary hover:text-primary"
                 >
-                  {rsvpdMap[ev.id] ? "RSVP'd ✓" : "RSVP"}
-                </button>
+                  Register →
+                </Link>
               </div>
             </div>
           ))}

@@ -91,6 +91,8 @@ export async function sendNotification(data: {
   }
 }
 
+export const createNotification = sendNotification;
+
 /**
  * Send a notification to all active members in Firestore
  */

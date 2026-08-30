@@ -16,21 +16,21 @@ export const Footer: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-8 text-xs font-label-caps text-on-surface-variant">
+        <div className="flex flex-wrap justify-center gap-6 sm:gap-8 text-xs font-label-caps text-on-surface-variant">
           <Link href="/#about" className="hover:text-primary transition-colors">
             About Club
           </Link>
           <Link href="/#domains" className="hover:text-primary transition-colors">
             Domains
           </Link>
-          <Link href="/#events" className="hover:text-primary transition-colors">
-            Events & Hackathons
+          <Link href="/rsvp" className="text-[#fed488] hover:text-white transition-colors">
+            Register for Events ✨
           </Link>
           <Link href="/#team" className="hover:text-primary transition-colors">
             Core Team
           </Link>
-          <Link href="/#join" className="hover:text-primary transition-colors">
-            Join Club
+          <Link href="/register" className="hover:text-primary transition-colors">
+            Create Account
           </Link>
           <Link href="/login" className="text-primary hover:underline">
             Member Portal

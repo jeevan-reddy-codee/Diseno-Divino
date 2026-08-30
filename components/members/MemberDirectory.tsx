@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export const MemberDirectory: React.FC = () => {
-  const { user, memberProfile, isAdmin, hasPermission } = useAuth();
+  const { user, memberProfile, isPresident, isDomainHead, hasPermission } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDomain, setSelectedDomain] = useState<string>("All");
@@ -63,7 +63,7 @@ export const MemberDirectory: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const canManage = isAdmin || hasPermission("manageMembers");
+  const canManage = isPresident || isDomainHead() || hasPermission("manageMembers");
 
   useEffect(() => {
     setLoading(true);
@@ -103,8 +103,8 @@ export const MemberDirectory: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...newMemberForm,
-          adminUid: memberProfile?.uid || user?.uid || "admin",
-          adminName: memberProfile?.name || "Admin",
+          adminUid: memberProfile?.uid || user?.uid || "president",
+          adminName: memberProfile?.name || "President",
         }),
       });
 
@@ -141,14 +141,14 @@ export const MemberDirectory: React.FC = () => {
   };
 
   const handleToggleStatus = async (member: Member) => {
-    if (!isAdmin) return;
+    if (!isPresident) return;
     const newStatus: MemberStatus = member.status === "active" ? "disabled" : "active";
     try {
       await setMemberStatus(
         member.uid,
         newStatus,
-        memberProfile?.uid || "admin",
-        memberProfile?.name || "Admin"
+        memberProfile?.uid || "president",
+        memberProfile?.name || "President"
       );
     } catch (err: any) {
       alert("Failed to update status: " + (err.message || "Unknown error"));
@@ -164,8 +164,8 @@ export const MemberDirectory: React.FC = () => {
         text: todoText.trim(),
         assignedTo: assignTodoMember.uid,
         assignedToName: assignTodoMember.name,
-        createdBy: memberProfile?.uid || user?.uid || "admin",
-        createdByName: memberProfile?.name || "Admin",
+        createdBy: memberProfile?.uid || user?.uid || "president",
+        createdByName: memberProfile?.name || "President",
         dueDate: todoDueDate,
       });
 
@@ -191,8 +191,8 @@ export const MemberDirectory: React.FC = () => {
           semester: editModalMember.semester,
           permissions: editModalMember.permissions,
         },
-        memberProfile?.uid || "admin",
-        memberProfile?.name || "Admin"
+        memberProfile?.uid || "president",
+        memberProfile?.name || "President"
       );
 
       setEditModalMember(null);
@@ -337,7 +337,7 @@ export const MemberDirectory: React.FC = () => {
                       {member.name}
                     </h3>
                     {member.role === "admin" && (
-                      <span title="Admin Lead">
+                      <span title="Club President">
                         <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
                       </span>
                     )}
@@ -378,7 +378,7 @@ export const MemberDirectory: React.FC = () => {
                         <span>Assign To-Do</span>
                       </button>
 
-                      {isAdmin && (
+                      {isPresident && (
                         <>
                           <button
                             onClick={() => setEditModalMember(member)}
@@ -423,7 +423,7 @@ export const MemberDirectory: React.FC = () => {
 
             <div className="mb-6 space-y-1">
               <span className="font-label-caps text-xs text-primary uppercase tracking-widest">
-                Admin Provisioning
+                President Provisioning
               </span>
               <h2 className="font-display text-2xl font-bold text-white">
                 Create Club Member Account
@@ -457,58 +457,92 @@ export const MemberDirectory: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">
-                    Contact Email *
+                    Login Email (Firebase Auth) *
                   </label>
                   <input
                     type="email"
                     required
-                    value={newMemberForm.email}
-                    onChange={(e) => setNewMemberForm({ ...newMemberForm, email: e.target.value })}
-                    placeholder="elena@disenodivino.org"
+                    value={newMemberForm.loginEmail || newMemberForm.email}
+                    onChange={(e) =>
+                      setNewMemberForm({
+                        ...newMemberForm,
+                        loginEmail: e.target.value,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="elena@gmail.com"
                     className="w-full form-input px-3.5 py-2.5 text-xs text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">
-                    USN / ID *
+                    USN *
                   </label>
                   <input
                     type="text"
                     required
                     value={newMemberForm.usn}
                     onChange={(e) => setNewMemberForm({ ...newMemberForm, usn: e.target.value })}
-                    placeholder="1DD23CS045"
-                    className="w-full form-input px-3.5 py-2.5 text-xs text-white uppercase"
+                    placeholder="1DD23CS019"
+                    className="w-full form-input px-3.5 py-2.5 text-xs text-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">
-                    Domain *
+                    Semester
+                  </label>
+                  <select
+                    value={newMemberForm.semester}
+                    onChange={(e) =>
+                      setNewMemberForm({ ...newMemberForm, semester: e.target.value })
+                    }
+                    className="w-full form-input px-3.5 py-2.5 text-xs text-white bg-[#111111]"
+                  >
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="3rd Semester">3rd Semester</option>
+                    <option value="4th Semester">4th Semester</option>
+                    <option value="5th Semester">5th Semester</option>
+                    <option value="6th Semester">6th Semester</option>
+                    <option value="7th Semester">7th Semester</option>
+                    <option value="8th Semester">8th Semester</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">
+                    Branch / Dept
+                  </label>
+                  <input
+                    type="text"
+                    value={newMemberForm.branch}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, branch: e.target.value })}
+                    placeholder="Computer Science & Engineering"
+                    className="w-full form-input px-3.5 py-2.5 text-xs text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">
+                    Primary Domain
                   </label>
                   <select
                     value={newMemberForm.domain}
                     onChange={(e) => setNewMemberForm({ ...newMemberForm, domain: e.target.value })}
                     className="w-full form-input px-3.5 py-2.5 text-xs text-white bg-[#111111]"
                   >
-                    {["UI/UX", "Tech", "Graphics", "Social Media", "PR / Marketing & Sponsorship", "Operations"].map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
+                    <option value="UI/UX">UI/UX</option>
+                    <option value="Tech">Tech</option>
+                    <option value="Web Development">Web Development</option>
+                    <option value="AI/ML">AI/ML</option>
+                    <option value="App Development">App Development</option>
+                    <option value="Graphics">Graphics</option>
+                    <option value="Social Media">Social Media</option>
+                    <option value="PR / Marketing & Sponsorship">PR / Marketing & Sponsorship</option>
+                    <option value="Operations">Operations</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-label-caps text-on-surface-variant mb-1 uppercase">
-                    Branch
-                  </label>
-                  <input
-                    type="text"
-                    value={newMemberForm.branch}
-                    onChange={(e) => setNewMemberForm({ ...newMemberForm, branch: e.target.value })}
-                    placeholder="Computer Science"
-                    className="w-full form-input px-3.5 py-2.5 text-xs text-white"
-                  />
                 </div>
 
                 <div>
@@ -521,7 +555,8 @@ export const MemberDirectory: React.FC = () => {
                     className="w-full form-input px-3.5 py-2.5 text-xs text-white bg-[#111111]"
                   >
                     <option value="member">Normal Member</option>
-                    <option value="admin">Admin</option>
+                    <option value="lead">Domain Head / Team Lead</option>
+                    <option value="president">President</option>
                   </select>
                 </div>
 

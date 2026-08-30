@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { submitJoinRequest } from "@/lib/services/requestService";
 import { DomainType } from "@/types/joinRequest";
-import { Send, CheckCircle, Sparkles, AlertCircle, X } from "lucide-react";
+import { useAuth } from "@/lib/firebase/authContext";
+import { Send, CheckCircle, Sparkles, AlertCircle, X, ShieldCheck, ArrowRight } from "lucide-react";
 
 export const JoinClub: React.FC = () => {
+  const { memberProfile, isPresident } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,6 +22,8 @@ export const JoinClub: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isExistingMember = !!memberProfile && memberProfile.status === "active";
 
   const domains: DomainType[] = [
     "UI/UX",
@@ -87,24 +92,53 @@ export const JoinClub: React.FC = () => {
 
         <div className="relative z-10 text-center max-w-2xl mx-auto mb-10 space-y-3">
           <span className="font-label-caps text-xs text-primary tracking-widest uppercase bg-primary/10 px-4 py-1.5 rounded-full border border-primary/20">
-            Membership Application
+            {isExistingMember ? "Active Membership" : "Membership Application"}
           </span>
           <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight">
-            Join the Diseño Divino Collective
+            {isExistingMember ? "You are a Diseño Divino Member" : "Join the Diseño Divino Collective"}
           </h2>
           <p className="font-body text-sm sm:text-base text-on-surface-variant">
-            Submit your application to become part of our core team. Requests are evaluated by domain leads.
+            {isExistingMember
+              ? `You are logged in as ${memberProfile?.name} (${isPresident ? "President" : memberProfile?.domain + " Member"}). Your membership is already active.`
+              : "Submit your application to become part of our core team. Requests are evaluated by domain leads and the President."}
           </p>
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-error/10 border border-error/30 text-error text-sm flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{error}</span>
+        {isExistingMember ? (
+          /* Active Member / President Notice */
+          <div className="relative z-10 text-center py-6 space-y-6">
+            <div className="w-16 h-16 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center text-primary mx-auto">
+              <ShieldCheck className="w-8 h-8 text-primary" />
+            </div>
+            <p className="text-sm text-[#bbcac7] max-w-md mx-auto">
+              Club membership registration is reserved for new applicants. You already have full access to our internal portal workspace and event registration.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link
+                href="/dashboard"
+                className="px-8 py-3.5 rounded-full bg-primary text-black font-bold text-xs uppercase tracking-wider hover:shadow-[0_0_25px_rgba(95,243,232,0.5)] transition-all flex items-center gap-2"
+              >
+                <span>Go to Member Portal</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/rsvp"
+                className="px-8 py-3.5 rounded-full bg-[#111111] border border-[#c5a059]/40 text-[#fed488] font-bold text-xs uppercase tracking-wider hover:border-[#fed488] transition-all flex items-center gap-2"
+              >
+                <span>Register for Events ✨</span>
+              </Link>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
+            {error && (
+              <div className="mb-6 p-4 rounded-2xl bg-error/10 border border-error/30 text-error text-sm flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-        <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
+            <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {/* Full Name */}
             <div className="space-y-2">
@@ -241,6 +275,8 @@ export const JoinClub: React.FC = () => {
             </button>
           </div>
         </form>
+        </>
+        )}
       </div>
 
       {/* Confirmation Modal */}

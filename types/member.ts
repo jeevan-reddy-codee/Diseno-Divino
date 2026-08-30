@@ -1,4 +1,4 @@
-export type MemberRole = "member" | "admin";
+export type MemberRole = "president" | "lead" | "member" | "admin";
 export type MemberStatus = "active" | "disabled";
 
 export interface MemberPermissions {
@@ -18,6 +18,8 @@ export interface Member {
   semester: string;
   branch: string;
   domain: string;
+  leadDomains?: string[]; // Domains this team lead / domain head manages
+  designation?: string;
   role: MemberRole;
   status: MemberStatus;
   joinedAt: string;

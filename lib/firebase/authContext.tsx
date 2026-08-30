@@ -12,16 +12,25 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "./config";
 import { Member, MemberPermissions } from "@/types/member";
-import { getMemberByUid, getMemberByEmail } from "@/lib/services/memberService";
-import { hasPermission as checkPermission, canAccessAdmin } from "@/lib/auth/permissions";
+import { getMemberByUid, getMemberByEmail, createMember } from "@/lib/services/memberService";
+import {
+  hasPermission as checkPermission,
+  isPresident as checkIsPresident,
+  isDomainHead as checkIsDomainHead,
+  canManageDomain as checkCanManageDomain,
+} from "@/lib/auth/permissions";
 
 interface AuthContextType {
   user: User | null;
   memberProfile: Member | null;
   loading: boolean;
   isAdmin: boolean;
+  isPresident: boolean;
+  isDomainHead: (domain?: string) => boolean;
+  canManageDomain: (domain: string) => boolean;
   hasPermission: (permission: keyof MemberPermissions) => boolean;
   signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (name: string, email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOutUser: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -33,8 +42,12 @@ const AuthContext = createContext<AuthContextType>({
   memberProfile: null,
   loading: true,
   isAdmin: false,
+  isPresident: false,
+  isDomainHead: () => false,
+  canManageDomain: () => false,
   hasPermission: () => false,
   signInWithEmail: async () => ({ success: false }),
+  signUpWithEmail: async () => ({ success: false }),
   signInWithGoogle: async () => ({ success: false }),
   signOutUser: async () => {},
   resetPassword: async () => ({ success: false }),
@@ -59,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const profile = await fetchProfileForUser(firebaseUser);
+          let profile = await fetchProfileForUser(firebaseUser);
           if (profile) {
             if (profile.status === "disabled") {
               await signOut(auth);
@@ -70,9 +83,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setMemberProfile(profile);
             }
           } else {
-            console.warn(`User ${firebaseUser.email} has no active Firestore member record.`);
+            // Auto-provision default member profile if missing
+            const newMember: Omit<Member, "joinedAt"> & { joinedAt?: string } = {
+              uid: firebaseUser.uid,
+              name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split("@")[0] : "Club Member"),
+              email: firebaseUser.email || "",
+              loginEmail: firebaseUser.email || "",
+              usn: "1DD" + Math.floor(100000 + Math.random() * 900000),
+              semester: "1st Semester",
+              branch: "Creative Technology",
+              role: "member",
+              domain: "UI/UX",
+              status: "active",
+              permissions: {
+                reviewRequests: false,
+                manageRequests: false,
+                assignTodos: false,
+                manageMembers: false,
+                createEvents: false,
+              },
+              avatarUrl: firebaseUser.photoURL || "",
+            };
+
+            try {
+              profile = await createMember(newMember, firebaseUser.uid, newMember.name);
+            } catch (createErr) {
+              console.warn("Auto-provisioning profile fallback:", createErr);
+              profile = { ...newMember, joinedAt: new Date().toISOString() };
+            }
+
             setUser(firebaseUser);
-            setMemberProfile(null);
+            setMemberProfile(profile);
           }
         } catch (err) {
           console.error("Error loading member profile from Firestore:", err);
@@ -114,8 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cred = await signInWithEmailAndPassword(auth, trimmedEmail, pass);
         credUser = cred.user;
       } catch (fbErr: any) {
-        // If user is not yet created in Auth, check if they are a registered Firestore member
-        // and auto-provision their Firebase Auth account on first sign-in
         if (fbErr.code === "auth/invalid-credential" || fbErr.code === "auth/user-not-found") {
           const existingMember = await getMemberByEmail(trimmedEmail);
           if (existingMember && existingMember.status === "active") {
@@ -126,7 +165,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (createErr.code === "auth/configuration-not-found") {
                 throw createErr;
               }
-              // If creation fails due to wrong password, re-throw initial credential error
               throw fbErr;
             }
           } else {
@@ -142,15 +180,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: "Authentication failed. Could not obtain user session." };
       }
 
-      const profile = await fetchProfileForUser(credUser);
+      let profile = await fetchProfileForUser(credUser);
 
       if (!profile) {
-        await signOut(auth);
-        setLoading(false);
-        return {
-          success: false,
-          error: "No active Diseño Divino member record found in Firestore for this account. Please contact an admin.",
+        // Auto-provision member record if missing
+        const newMember = {
+          uid: credUser.uid,
+          name: credUser.displayName || trimmedEmail.split("@")[0],
+          email: trimmedEmail,
+          loginEmail: trimmedEmail,
+          usn: "1DD" + Math.floor(100000 + Math.random() * 900000),
+          semester: "1st Semester",
+          branch: "Creative Technology",
+          role: "member" as const,
+          domain: "UI/UX",
+          status: "active" as const,
+          permissions: {
+            reviewRequests: false,
+            manageRequests: false,
+            assignTodos: false,
+            manageMembers: false,
+            createEvents: false,
+          },
+          avatarUrl: credUser.photoURL || "",
         };
+
+        try {
+          profile = await createMember(newMember, credUser.uid, newMember.name);
+        } catch (e) {
+          profile = { ...newMember, joinedAt: new Date().toISOString() };
+        }
       }
 
       if (profile.status === "disabled") {
@@ -158,7 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return {
           success: false,
-          error: "Your membership access has been disabled by an administrator. Access denied.",
+          error: "Your membership access has been disabled by the club president. Access denied.",
         };
       }
 
@@ -172,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (err.code === "auth/configuration-not-found") {
         errorMsg =
-          "Firebase Authentication is not enabled yet in your project console. Please visit: Firebase Console -> Authentication -> 'Get Started' -> Sign-in method -> Enable 'Email/Password'.";
+          "Firebase Authentication is not enabled yet in your project console. Please visit Firebase Console -> Authentication -> Enable Email/Password.";
       } else if (
         err.code === "auth/invalid-credential" ||
         err.code === "auth/user-not-found" ||
@@ -189,20 +248,109 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signUpWithEmail = async (
+    name: string,
+    email: string,
+    pass: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true);
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
+
+    try {
+      if (!trimmedEmail || !pass || !trimmedName) {
+        setLoading(false);
+        return { success: false, error: "Please enter your name, email, and password." };
+      }
+
+      const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
+      const newUser = cred.user;
+
+      let profile = await fetchProfileForUser(newUser);
+      if (!profile) {
+        const newMember = {
+          uid: newUser.uid,
+          name: trimmedName,
+          email: trimmedEmail,
+          loginEmail: trimmedEmail,
+          usn: "1DD" + Math.floor(100000 + Math.random() * 900000),
+          semester: "1st Semester",
+          branch: "Creative Technology",
+          role: "member" as const,
+          domain: "UI/UX",
+          status: "active" as const,
+          permissions: {
+            reviewRequests: false,
+            manageRequests: false,
+            assignTodos: false,
+            manageMembers: false,
+            createEvents: false,
+          },
+          avatarUrl: "",
+        };
+
+        try {
+          profile = await createMember(newMember, newUser.uid, trimmedName);
+        } catch (mErr) {
+          console.warn("Could not save member profile in Firestore on signup:", mErr);
+          profile = { ...newMember, joinedAt: new Date().toISOString() };
+        }
+      }
+
+      setUser(newUser);
+      setMemberProfile(profile);
+      setLoading(false);
+      return { success: true };
+    } catch (err: any) {
+      setLoading(false);
+      let errorMsg = err.message || "Failed to create account. Please try again.";
+      if (err.code === "auth/email-already-in-use") {
+        errorMsg = "An account with this email already exists. Please log in instead.";
+      } else if (err.code === "auth/weak-password") {
+        errorMsg = "Password should be at least 6 characters.";
+      } else if (err.code === "auth/invalid-email") {
+        errorMsg = "Please enter a valid email address.";
+      }
+      return { success: false, error: errorMsg };
+    }
+  };
+
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const googleUser = result.user;
-      const profile = await fetchProfileForUser(googleUser);
+      let profile = await fetchProfileForUser(googleUser);
 
+      // Requirement 3: A new Google user can create an account with default role member
       if (!profile) {
-        await signOut(auth);
-        setLoading(false);
-        return {
-          success: false,
-          error: `Google account (${googleUser.email}) is authenticated, but no active club member record exists in Firestore for this email. Only registered club members can enter the portal.`,
+        const newMember = {
+          uid: googleUser.uid,
+          name: googleUser.displayName || (googleUser.email ? googleUser.email.split("@")[0] : "Google Member"),
+          email: googleUser.email || "",
+          loginEmail: googleUser.email || "",
+          usn: "1DD" + Math.floor(100000 + Math.random() * 900000),
+          semester: "1st Semester",
+          branch: "Creative Technology",
+          role: "member" as const,
+          domain: "UI/UX",
+          status: "active" as const,
+          permissions: {
+            reviewRequests: false,
+            manageRequests: false,
+            assignTodos: false,
+            manageMembers: false,
+            createEvents: false,
+          },
+          avatarUrl: googleUser.photoURL || "",
         };
+
+        try {
+          profile = await createMember(newMember, googleUser.uid, newMember.name);
+        } catch (mErr) {
+          console.warn("Could not save Google user profile in Firestore:", mErr);
+          profile = { ...newMember, joinedAt: new Date().toISOString() };
+        }
       }
 
       if (profile.status === "disabled") {
@@ -210,7 +358,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return {
           success: false,
-          error: "Your membership access is currently disabled. Access denied.",
+          error: "Your membership access is currently disabled by the club president. Access denied.",
         };
       }
 
@@ -227,7 +375,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return {
           success: false,
           error:
-            "Google Provider is not enabled yet in your Firebase Console. Go to Firebase Console -> Authentication -> Sign-in method -> Add 'Google'.",
+            "Google Provider is not enabled yet in your Firebase Console. Go to Firebase Console -> Authentication -> Sign-in method -> Add Google.",
         };
       }
       return {
@@ -262,7 +410,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err.code === "auth/configuration-not-found") {
         errorMsg = "Firebase Authentication is not enabled yet in the Firebase Console.";
       } else if (err.code === "auth/user-not-found") {
-        errorMsg = "No Firebase user found with this email address.";
+        errorMsg = "No user found with this email address.";
       } else if (err.code === "auth/invalid-email") {
         errorMsg = "Please enter a valid email address.";
       }
@@ -270,7 +418,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAdmin = canAccessAdmin(memberProfile);
+  const isPres = checkIsPresident(memberProfile);
+  const isLead = (domain?: string) => checkIsDomainHead(memberProfile, domain);
+  const canManageDom = (domain: string) => checkCanManageDomain(memberProfile, domain);
   const hasPerm = (perm: keyof MemberPermissions) => checkPermission(memberProfile, perm);
 
   return (
@@ -279,9 +429,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         memberProfile,
         loading,
-        isAdmin,
+        isAdmin: isPres,
+        isPresident: isPres,
+        isDomainHead: isLead,
+        canManageDomain: canManageDom,
         hasPermission: hasPerm,
         signInWithEmail,
+        signUpWithEmail,
         signInWithGoogle,
         signOutUser,
         resetPassword,

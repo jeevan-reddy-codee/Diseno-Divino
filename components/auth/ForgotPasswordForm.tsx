@@ -36,8 +36,27 @@ export const ForgotPasswordForm: React.FC = () => {
       {/* Ambience */}
       <div className="absolute -top-20 -right-20 w-60 h-60 bg-primary/20 rounded-full blur-[90px] pointer-events-none" />
 
+      {/* Top Home Navigation Bar */}
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/10 relative z-10">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#94A3B8] hover:text-primary transition-colors group"
+          title="Return to Home Page"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span>Back to Home</span>
+        </Link>
+
+        <Link
+          href="/"
+          className="px-3 py-1 rounded-full bg-white/5 border border-white/15 text-xs font-mono text-primary hover:bg-primary hover:text-black transition-all"
+        >
+          Home
+        </Link>
+      </div>
+
       <div className="text-center mb-8 space-y-2 relative z-10">
-        <Link href="/" className="inline-block mb-2">
+        <Link href="/" className="inline-block mb-2 hover:opacity-90 transition-opacity" title="Diseño Divino Home">
           <span className="font-display text-2xl font-bold text-white">
             Diseño <span className="text-primary">Divino.</span>
           </span>

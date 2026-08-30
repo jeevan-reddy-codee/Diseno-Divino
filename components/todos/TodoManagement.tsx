@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 export const TodoManagement: React.FC = () => {
-  const { user, memberProfile, isAdmin, hasPermission } = useAuth();
+  const { user, memberProfile, isPresident, isDomainHead, hasPermission } = useAuth();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [activeMembers, setActiveMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export const TodoManagement: React.FC = () => {
   const [assignedDueDate, setAssignedDueDate] = useState("Due in 3 days");
   const [isAssigning, setIsAssigning] = useState(false);
 
-  const canAssign = isAdmin || hasPermission("assignTodos");
+  const canAssign = isPresident || isDomainHead() || hasPermission("assignTodos");
   const uid = memberProfile?.uid || user?.uid || "";
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export const TodoManagement: React.FC = () => {
 
     const unsubscribe = subscribeToTodos(
       uid,
-      isAdmin,
+      isPresident,
       (list) => {
         setTodos(list);
         setLoading(false);
@@ -68,7 +68,7 @@ export const TodoManagement: React.FC = () => {
     }
 
     return () => unsubscribe();
-  }, [uid, isAdmin, canAssign]);
+  }, [uid, isPresident, canAssign]);
 
   const handleToggle = async (todoId: string) => {
     try {
@@ -120,7 +120,7 @@ export const TodoManagement: React.FC = () => {
         assignedTo: selectedMemberUid,
         assignedToName: targetMember?.name || "Member",
         createdBy: uid,
-        createdByName: memberProfile?.name || "Admin",
+        createdByName: memberProfile?.name || "President",
         dueDate: assignedDueDate,
       });
 

@@ -1,32 +1,41 @@
 import { Member } from "@/types/member";
-import { canAccessAdmin, hasPermission } from "./permissions";
+import { isPresident, isDomainHead } from "./permissions";
 
 export function isRouteAllowed(
   pathname: string,
   member: Member | null | undefined
 ): { allowed: boolean; redirectUrl?: string } {
-  // Public routes
+  // Public routes accessible to everyone
   if (
     pathname === "/" ||
     pathname === "/login" ||
-    pathname === "/forgot-password"
+    pathname === "/register" ||
+    pathname === "/forgot-password" ||
+    pathname === "/rsvp"
   ) {
     return { allowed: true };
   }
 
-  // Not logged in or no member profile
+  // If not logged in or no member profile
   if (!member) {
-    return { allowed: false, redirectUrl: "/login" };
+    return { allowed: false, redirectUrl: `/login?redirect=${encodeURIComponent(pathname)}` };
   }
 
-  // Disabled member
+  // Disabled member access blocked
   if (member.status === "disabled") {
     return { allowed: false, redirectUrl: "/login?error=disabled" };
   }
 
-  // Admin route check
+  // President Control Center route check
   if (pathname.startsWith("/admin")) {
-    if (!canAccessAdmin(member)) {
+    if (!isPresident(member)) {
+      return { allowed: false, redirectUrl: "/dashboard" };
+    }
+  }
+
+  // Applicant pipeline / request management route check
+  if (pathname.startsWith("/dashboard/requests")) {
+    if (!isPresident(member) && !isDomainHead(member)) {
       return { allowed: false, redirectUrl: "/dashboard" };
     }
   }
